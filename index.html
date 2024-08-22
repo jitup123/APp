@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat App using Socket.IO and Node.js</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+
+<body class="bg-gray-100 h-screen flex items-center justify-center">
+
+    <div class="w-full max-w-lg mx-auto bg-white shadow-lg rounded-lg overflow-hidden">
+        <!-- Header -->
+        <div class="bg-blue-600 text-white p-4 text-center">
+            <h2 class="font-semibold text-xl">Chat App</h2>
+            <p id="onlineUsers" class="text-sm mt-1">Online Users: 0</p>
+        </div>
+
+        <!-- Chat Box -->
+        <div id="messageArea" class="h-80 overflow-y-auto p-4 bg-gray-50"></div>
+
+        <!-- Typing Indicator -->
+        <div class="p-2 text-center text-gray-600 italic" id="typingIndicator"></div>
+
+        <!-- Input Area -->
+        <form id="form" class="p-4 bg-white flex items-center space-x-2">
+            <input class="w-1/3 border border-gray-300 rounded-md px-3 py-2 focus:outline-none" 
+                   type="text" placeholder="Name" id="myname" required style="display: none;">
+            <input class="flex-1 border border-gray-300 rounded-md px-3 py-2 focus:outline-none" 
+                   type="text" placeholder="Message" id="message" required>
+            <button class="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition">Send</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        let socket = io();
+
+        let form = document.getElementById('form');
+        let myname = document.getElementById('myname');
+        let message = document.getElementById('message');
+        let messageArea = document.getElementById("messageArea");
+        let onlineUsers = document.getElementById("onlineUsers");
+        let typingIndicator = document.getElementById("typingIndicator");
+
+        // Function to prompt for name and store it in localStorage
+        function promptForName() {
+            let storedName = localStorage.getItem('username');
+            if (!storedName) {
+                storedName = prompt("Enter your name:");
+                if (storedName) {
+                    localStorage.setItem('username', storedName);
+                } else {
+                    storedName = "Anonymous";
+                    localStorage.setItem('username', storedName);
+                }
+            }
+            return storedName;
+        }
+
+        // Initialize user's name
+        let username = promptForName();
+        myname.value = username;
+
+        // Emit typing event when typing
+        message.addEventListener('input', () => {
+            if (message.value) {
+                socket.emit('typing', username);
+            } else {
+                socket.emit('stop typing');
+            }
+        });
+
+        // Handle submit event
+        form.addEventListener("submit", (e) => {
+            e.preventDefault();
+
+            if (message.value) {
+                socket.emit('send name', username);
+                socket.emit('send message', message.value);
+                message.value = "";
+                socket.emit('stop typing'); // Stop typing indicator after sending
+            }
+        });
+
+        // Listen for typing event
+        socket.on("typing", (username) => {
+            typingIndicator.textContent = `${username} is typing...`;
+        });
+
+        // Listen for stop typing event
+        socket.on("stop typing", () => {
+            typingIndicator.textContent = "";
+        });
+
+        // Update online users count
+        socket.on("online users", (count) => {
+            onlineUsers.textContent = `Online Users: ${count}`;
+        });
+
+        // Listen for chat events
+        socket.on("send name", (username) => {
+            let name = document.createElement("p");
+            name.classList.add("font-semibold", "text-gray-700");
+            name.textContent = username + ":";
+            messageArea.appendChild(name);
+        });
+
+        socket.on("send message", (chat) => {
+            let chatContent = document.createElement("p");
+            chatContent.classList.add("bg-blue-100", "rounded-lg", "p-2", "my-2", "text-gray-800", "w-fit", "max-w-xs");
+            chatContent.textContent = chat;
+            messageArea.appendChild(chatContent);
+
+            // Auto-scroll to the latest message
+            messageArea.scrollTop = messageArea.scrollHeight;
+        });
+    </script>
+
+</body>
+
+</html>
